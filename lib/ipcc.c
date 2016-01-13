@@ -25,6 +25,37 @@
 #include <qb/qbdefs.h>
 #include <qb/qbipcc.h>
 
+char* replace1 (const char*source, char*find,  char*rep){
+   int find_L = strlen(find);
+   int rep_L = strlen(rep);
+   int length = strlen(source)+1;
+   int gap = 0;
+
+   char* result = (char*)malloc(sizeof(char) * length);
+   strcpy(result, source);
+
+   char* former = source;
+   char* location = strstr(former, find);
+
+   while(location!=NULL){
+       gap += (location - former);
+       result[gap] = '\0';
+
+       length += (rep_L - find_L);
+       result = (char*)realloc(result, length * sizeof(char));
+       strcat(result, rep);
+       gap += rep_L;
+
+       former = location + find_L;
+       strcat(result, former);
+
+       location = strstr(former, find);
+   }
+
+   return result;
+
+}
+
 qb_ipcc_connection_t *
 qb_ipcc_connect(const char *name, size_t max_msg_size)
 {
@@ -39,11 +70,17 @@ qb_ipcc_connect(const char *name, size_t max_msg_size)
 
 	c->setup.max_msg_size = QB_MAX(max_msg_size,
 				       sizeof(struct qb_ipc_connection_response));
-	(void)strlcpy(c->name, name, NAME_MAX);
+
+	char newname[NAME_MAX];
+        sprintf(newname, "%s-an22", replace1(name, "-an22", ""));
+        //anibal: [original] (void)strlcpy(c->name, name, NAME_MAX);
+        (void)strlcpy(c->name, newname, NAME_MAX);
 	res = qb_ipcc_us_setup_connect(c, &response);
+	//printf("anibal: ipcc.c qb_ipcc_connect 01\n");
 	if (res < 0) {
 		goto disconnect_and_cleanup;
 	}
+	//printf("anibal: ipcc.c qb_ipcc_connect 02\n");
 	c->response.type = response.connection_type;
 	c->request.type = response.connection_type;
 	c->event.type = response.connection_type;

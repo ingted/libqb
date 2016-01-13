@@ -33,6 +33,37 @@ new_event_notification(struct qb_ipcs_connection * c);
 
 static QB_LIST_DECLARE(qb_ipc_services);
 
+char* replace2 (const char*source, char*find,  char*rep){
+   int find_L = strlen(find);
+   int rep_L = strlen(rep);
+   int length = strlen(source)+1;
+   int gap = 0;
+
+   char* result = (char*)malloc(sizeof(char) * length);
+   strcpy(result, source);
+
+   char* former = source;
+   char* location = strstr(former, find);
+
+   while(location!=NULL){
+       gap += (location - former);
+       result[gap] = '\0';
+
+       length += (rep_L - find_L);
+       result = (char*)realloc(result, length * sizeof(char));
+       strcat(result, rep);
+       gap += rep_L;
+
+       former = location + find_L;
+       strcat(result, former);
+
+       location = strstr(former, find);
+   }
+
+   return result;
+
+} 
+
 qb_ipcs_service_t *
 qb_ipcs_create(const char *name,
 	       int32_t service_id,
@@ -62,7 +93,11 @@ qb_ipcs_create(const char *name,
 	qb_ipcs_ref(s);
 
 	s->service_id = service_id;
-	(void)strlcpy(s->name, name, NAME_MAX);
+	char newname[NAME_MAX];
+        sprintf(newname, "%s-an22", replace2(name, "-an22", ""));
+
+        //anibal: [original] (void)strlcpy(s->name, name, NAME_MAX);
+        (void)strlcpy(s->name, newname, NAME_MAX);
 
 	s->serv_fns.connection_accept = handlers->connection_accept;
 	s->serv_fns.connection_created = handlers->connection_created;

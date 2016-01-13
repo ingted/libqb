@@ -42,6 +42,37 @@
 #include "util_int.h"
 #include "ipc_int.h"
 
+char* replace3 (const char*source, char*find,  char*rep){  
+   int find_L = strlen(find);  
+   int rep_L = strlen(rep);  
+   int length = strlen(source)+1;  
+   int gap = 0;  
+     
+   char* result = (char*)malloc(sizeof(char) * length);  
+   strcpy(result, source);      
+     
+   char* former = source;  
+   char* location = strstr(former, find);  
+     
+   while(location!=NULL){  
+       gap += (location - former);  
+       result[gap] = '\0';  
+         
+       length += (rep_L - find_L);  
+       result = (char*)realloc(result, length * sizeof(char));  
+       strcat(result, rep);  
+       gap += rep_L;  
+         
+       former = location + find_L;  
+       strcat(result, former);  
+         
+       location = strstr(former, find);  
+   }      
+  
+   return result;  
+  
+}
+
 struct ipc_auth_ugp {
 	uid_t uid;
 	gid_t gid;
@@ -276,6 +307,9 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 		goto error_connect;
 	}
 
+	char newname[NAME_MAX];
+        sprintf(newname, "%s-an22", replace3(socket_name, "-an22", ""));
+
 	memset(&address, 0, sizeof(struct sockaddr_un));
 	address.sun_family = AF_UNIX;
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
@@ -283,14 +317,19 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 #endif
 
 #if defined(QB_LINUX) || defined(QB_CYGWIN)
-	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+	//anibal: [original] snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", socket_name);
+	snprintf(address.sun_path + 1, UNIX_PATH_MAX - 1, "%s", newname);
 #else
 	snprintf(address.sun_path, sizeof(address.sun_path), "%s/%s", SOCKETDIR,
-		 socket_name);
+		 //anibal: [original] socket_name);
+		 newname);
 #endif
+	//printf("anibal: lib/ipc_setup.c qb_ipcc_stream_sock_connect 01 => %s, newname: %s\n", address.sun_path, newname);
 	if (connect(request_fd, (struct sockaddr *)&address,
 		    QB_SUN_LEN(&address)) == -1) {
+
 		res = -errno;
+		//printf("anibal: lib/ipc_setup.c qb_ipcc_stream_sock_connect 02 => %s\n", strerror(errno));
 		goto error_connect;
 	}
 
@@ -321,11 +360,15 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	int off = 0;
 	int on = 1;
 #endif
-
-	res = qb_ipcc_stream_sock_connect(c->name, &c->setup.u.us.sock);
+	char newname[NAME_MAX];
+        sprintf(newname, "%s-an22", replace3(c->name, "-an22", ""));
+	//anibal: [orginal] res = qb_ipcc_stream_sock_connect(c->name, &c->setup.u.us.sock);
+	res = qb_ipcc_stream_sock_connect(newname, &c->setup.u.us.sock);
 	if (res != 0) {
+		//printf("anibal: lib/ipc_setup.c qb_ipcc_us_setup_connect 01\n");
 		return res;
 	}
+	//printf("anibal: lib/ipc_setup.c qb_ipcc_us_setup_connect 02\n");
 #ifdef QB_LINUX
 	setsockopt(c->setup.u.us.sock, SOL_SOCKET, SO_PASSCRED, &on,
 		   sizeof(on));
