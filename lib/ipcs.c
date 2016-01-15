@@ -26,6 +26,14 @@
 #include <qb/qbatomic.h>
 #include <qb/qbipcs.h>
 
+//#include <stdio.h>
+//#include <errno.h>
+#include <netdb.h>
+//#include <sys/types.h>
+//#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 static void qb_ipcs_flowcontrol_set(struct qb_ipcs_connection *c,
 				    int32_t fc_enable);
 static int32_t
@@ -93,10 +101,38 @@ qb_ipcs_create(const char *name,
 	qb_ipcs_ref(s);
 
 	s->service_id = service_id;
-	char newname[NAME_MAX];
-        sprintf(newname, "%s-an22", replace2(name, "-an22", ""));
 
+	struct addrinfo hints, *info, *p;
+        int gai_result;
+
+        char hostname[1024];
+        hostname[1023] = '\0';
+        gethostname(hostname, 1023);
+
+        memset(&hints, 0, sizeof hints);
+        hints.ai_family = AF_UNSPEC; /*either IPV4 or IPV6*/
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_CANONNAME;
+
+        if ((gai_result = getaddrinfo(hostname, "http", &hints, &info)) != 0) {
+            //fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(gai_result));
+            //exit(1);
+                //goto disconnect_and_cleanup;
+		return NULL;
+        }
+
+
+        for(p = info; p != NULL; p = p->ai_next) {
+            //printf("hostname: %s\n", p->ai_canonname);
+                break;
+        }
+
+
+	char newname[NAME_MAX];
+        sprintf(newname, "%s", replace2(name, p->ai_canonname, ""));
+	strcat(newname, p->ai_canonname);
         //anibal: [original] (void)strlcpy(s->name, name, NAME_MAX);
+	freeaddrinfo(info);
         (void)strlcpy(s->name, newname, NAME_MAX);
 
 	s->serv_fns.connection_accept = handlers->connection_accept;

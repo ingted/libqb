@@ -42,6 +42,14 @@
 #include "util_int.h"
 #include "ipc_int.h"
 
+//#include <stdio.h>
+//#include <errno.h>
+#include <netdb.h>
+//#include <sys/types.h>
+//#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 char* replace3 (const char*source, char*find,  char*rep){  
    int find_L = strlen(find);  
    int rep_L = strlen(rep);  
@@ -306,10 +314,34 @@ qb_ipcc_stream_sock_connect(const char *socket_name, int32_t * sock_pt)
 	if (res < 0) {
 		goto error_connect;
 	}
+	
+	struct addrinfo hints, *info, *p;
+        int gai_result;
 
+        char hostname[1024];
+        hostname[1023] = '\0';
+        gethostname(hostname, 1023);
+
+        memset(&hints, 0, sizeof hints);
+        hints.ai_family = AF_UNSPEC; /*either IPV4 or IPV6*/
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_CANONNAME;
+
+        if ((gai_result = getaddrinfo(hostname, "http", &hints, &info)) != 0) {
+            //fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(gai_result));
+            //exit(1);
+                goto error_connect;
+        }
+
+
+        for(p = info; p != NULL; p = p->ai_next) {
+            //printf("hostname: %s\n", p->ai_canonname);
+                break;
+        }
 	char newname[NAME_MAX];
-        sprintf(newname, "%s-an22", replace3(socket_name, "-an22", ""));
-
+        sprintf(newname, "%s", replace3(socket_name, p->ai_canonname, ""));
+	strcat(newname, p->ai_canonname);
+	freeaddrinfo(info);
 	memset(&address, 0, sizeof(struct sockaddr_un));
 	address.sun_family = AF_UNIX;
 #ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
@@ -360,9 +392,35 @@ qb_ipcc_us_setup_connect(struct qb_ipcc_connection *c,
 	int off = 0;
 	int on = 1;
 #endif
+	struct addrinfo hints, *info, *p;
+        int gai_result;
+
+        char hostname[1024];
+        hostname[1023] = '\0';
+        gethostname(hostname, 1023);
+
+        memset(&hints, 0, sizeof hints);
+        hints.ai_family = AF_UNSPEC; /*either IPV4 or IPV6*/
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_CANONNAME;
+
+        if ((gai_result = getaddrinfo(hostname, "http", &hints, &info)) != 0) {
+            //fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(gai_result));
+            //exit(1);
+                //goto disconnect_and_cleanup;
+		return gai_result;
+        }
+
+
+        for(p = info; p != NULL; p = p->ai_next) {
+            //printf("hostname: %s\n", p->ai_canonname);
+                break;
+        }
 	char newname[NAME_MAX];
-        sprintf(newname, "%s-an22", replace3(c->name, "-an22", ""));
+        sprintf(newname, "%s", replace3(c->name, p->ai_canonname, ""));
+	strcat(newname, p->ai_canonname);
 	//anibal: [orginal] res = qb_ipcc_stream_sock_connect(c->name, &c->setup.u.us.sock);
+	freeaddrinfo(info);
 	res = qb_ipcc_stream_sock_connect(newname, &c->setup.u.us.sock);
 	if (res != 0) {
 		//printf("anibal: lib/ipc_setup.c qb_ipcc_us_setup_connect 01\n");
